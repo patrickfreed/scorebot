@@ -1,0 +1,9 @@
+#!/usr/bin/ruby
+
+if `nmap -p443 --script ssl-heartbleed 192.168.1.11` =~ /VULNERABLE/ 
+	puts 0
+	exit 0
+else
+	exit 1
+	puts 1
+end
