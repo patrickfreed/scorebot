@@ -1,4 +1,4 @@
 vuln_name: Heartbleed
 	vuln_check: ./test/heartbleed_test
-	vuln_expected_output: lol
+	vuln_install: ./install/heartbleed_install
 	vuln_points: 100

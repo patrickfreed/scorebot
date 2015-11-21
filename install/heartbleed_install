@@ -1,0 +1,61 @@
+#!/bin/bash
+
+INSTALL_DIR="/opt/install_scripts/apache"
+HTTPD="httpd-2.4.17"
+APR="apr-1.5.2"
+APR_UTIL="apr-util-1.5.4"
+PCRE="pcre-8.36"
+OPEN_SSL="openssl-1.0.1f"
+
+mkdir $INSTALL_DIR
+cd $INSTALL_DIR
+
+echo "Downloading necessary files..."
+wget --quiet "http://mirrors.ibiblio.org/apache//apr/apr-1.5.2.tar.gz"
+wget --quiet "http://mirrors.ibiblio.org/apache//apr/apr-util-1.5.4.tar.gz"
+wget --quiet "ftp://ftp.csx.cam.ac.uk/pub/software/programming/pcre/pcre-8.36.tar.gz"
+wget --quiet "http://mirrors.advancedhosters.com/apache//httpd/httpd-2.4.17.tar.gz"
+wget --quiet "https://www.openssl.org/source/old/1.0.1/$OPEN_SSL.tar.gz"
+
+tar zxvf "$HTTPD.tar.gz" > /dev/null
+tar zxvf "pcre-8.36.tar.gz" > /dev/null
+tar zxvf "apr-util-1.5.4.tar.gz" > /dev/null
+tar zxvf "apr-1.5.2.tar.gz" > /dev/null
+tar zxvf "$OPEN_SSL.tar.gz" > /dev/null
+
+echo "Building Hearbleed-vulnerable OpenSSL..."
+cd "$OPEN_SSL"
+./config "--prefix=/opt/$OPEN_SSL --openssldir=/opt/$OPEN_SSL" > /dev/null
+make > /dev/null
+make install_sw > /dev/null
+
+echo "Builiding pcre..."
+cd "$INSTALL_DIR/$PCRE"
+./configure --prefix=/usr/lib/pcre > /dev/null
+make > /dev/null
+make install > /dev/null
+
+cd "$INSTALL_DIR"
+mv "$APR_UTIL" "$HTTPD/srclib/apr-util"
+mv "$APR" "$HTTPD/srclib/apr"
+
+echo "Building and installing httpd..."
+cd "$INSTALL_DIR/$HTTPD"
+./configure --with-pcre=/usr/lib/pcre --with-included-apr --enable-ssl --with-ssl=/opt/$OPEN_SSL --enable-ssl-staticlib-deps --enable-mods-static=ssl > /dev/null
+make > /dev/null
+make install > /dev/null
+
+echo "Generating SSL keys..."
+cd "/usr/local/apache2/conf"
+openssl req -new -x509 -days 365 -keyout server.key -out server.crt -nodes -subj '/O=Cyber Savannah name/OU=Cyber Savanah department/CN=www.fakewebsite1234.com' > /dev/null
+
+echo "Configuring httpd server..."
+sed -i '/^#Include .*httpd-ssl.conf/s/^#//' httpd.conf
+sed -i '/^SSLSessionCache /s/^/#/' extra/httpd-ssl.conf
+
+echo -e "#!/bin/bash\n/usr/local/apache2/bin/apachectl" > /etc/init.d/httpd
+chmod 755 "/etc/init.d/httpd"
+update-rc.d httpd defaults
+
+echo "Installation complete. Starting server on ports 80 and 443."
+service httpd start > /dev/null
